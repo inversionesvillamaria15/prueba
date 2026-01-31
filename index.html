@@ -13,6 +13,10 @@
         .btn { background: #2563eb; color: white; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: bold; margin-top: 25px; cursor: pointer; font-size: 15px; }
         .btn:disabled { background: #cbd5e1; }
         
+        /* Previsualización de imagen */
+        #preview-container { display: none; margin-top: 10px; text-align: center; }
+        #img-preview { width: 100%; max-height: 250px; object-fit: contain; border-radius: 12px; border: 1px solid #e2e8f0; }
+
         #vista-captura { display: none; text-align: center; }
         .ticket { background: #fff; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; text-align: left; margin: 20px 0; }
         .t-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dotted #cbd5e1; padding-bottom: 4px; gap: 10px; }
@@ -56,13 +60,16 @@
         <label>FOTO COMPROBANTE</label>
         <input type="file" id="foto" accept="image/*">
         
+        <div id="preview-container">
+            <img id="img-preview" src="">
+        </div>
+        
         <button id="btn" class="btn" onclick="enviar()" disabled>ENVIAR PAGO</button>
     </div>
 
     <div id="vista-captura" class="card">
         <div style="font-size:50px; color:#10b981;">✓</div>
         <h2 style="margin:5px 0; color:#1e293b;">¡PAGO REPORTADO!</h2>
-        <p style="color:#64748b; font-size:12px;">Toma captura para el grupo</p>
         <div class="ticket">
             <div class="t-row"><span class="t-label">ASESOR</span><span class="t-val" id="r-asesor"></span></div>
             <div class="t-row"><span class="t-label">CLIENTE</span><span class="t-val" id="r-cliente"></span></div>
@@ -81,26 +88,30 @@
 
     <script>
         const NOMBRE_ASESOR = "Eduardo Torres"; 
-        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbygqiwclXfrFgSSXhvvprpRV94psJh5LKPC5FUbxPCtIPg_5g-AxstGW_qU9Rq7yds/exec";
+        const SCRIPT_URL = "TU_URL_DE_SCRIPT_AQUI";
 
         document.getElementById('asesor-tag').innerText = "ASESOR: " + NOMBRE_ASESOR;
 
-        // --- PUENTE DE IMAGEN COMO TEXTO ---
         let imagenBase64App = null; 
 
-        // Esta función será llamada por App Inventor mediante EvaluateJavaScript
+        // 1. RECEPCIÓN DE IMAGEN DESDE APP INVENTOR
         window.recibirFotoDesdeApp = function(base64) {
             imagenBase64App = base64;
+            
+            // Mostrar miniatura
+            document.getElementById('img-preview').src = "data:image/jpeg;base64," + base64;
+            document.getElementById('preview-container').style.display = "block";
+            
             const box = document.getElementById('confirm-box');
-            box.innerHTML = "✅ FOTO PROCESADA CON ÉXITO";
+            box.innerHTML = "✅ COMPROBANTE CARGADO";
             box.style.background = "#dcfce7";
             box.style.border = "2px solid #10b981";
         };
 
-        // Interceptar el clic en el botón de archivo para avisar a la App
+        // 2. INTERCEPTAR CLIC PARA EL PUENTE
         document.getElementById('foto').addEventListener('click', function(e) {
             if (window.AppInventor) {
-                e.preventDefault(); // Detiene el menú fallido de Android
+                e.preventDefault(); 
                 AppInventor.setWebViewString("ABRIR_GALERIA");
             }
         });
@@ -122,17 +133,14 @@
                         document.getElementById('confirm-box').style.background = "#fee2e2";
                         document.getElementById('btn').disabled = true;
                     }
-                } catch(e) { console.error("Error validando"); }
+                } catch(e) { console.error("Error"); }
             }
         }
 
         function enviar() {
             const m = document.getElementById('monto').value;
             const fec = document.getElementById('fecha').value;
-            const f = document.getElementById('foto').files[0];
-
-            // Validamos que exista una imagen (de la App o del input) y los campos obligatorios
-            if((!f && !imagenBase64App) || !m || !fec) return alert("Por favor, completa fecha, monto y foto.");
+            if(!imagenBase64App || !m || !fec) return alert("Falta fecha, monto o foto.");
             
             document.getElementById('btn').innerText = "ENVIANDO REPORTE...";
             document.getElementById('btn').disabled = true;
@@ -149,29 +157,14 @@
                 metodo_pago: document.getElementById('metodo').value,
                 tipo_abono: document.getElementById('tipo').value,
                 observacion: document.getElementById('observacion').value,
-                imagen_base64: imagenBase64App || "" 
+                imagen_base64: imagenBase64App
             };
 
-            // Si no hay imagen de la App pero sí del input (ej. Chrome), la convertimos
-            if(!imagenBase64App && f) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    payload.imagen_base64 = e.target.result.split(',')[1];
-                    procesarEnvio(payload);
-                };
-                reader.readAsDataURL(f);
-            } else {
-                procesarEnvio(payload);
-            }
-        }
-
-        function procesarEnvio(payload) {
             fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
             .then(r => r.json())
             .then(res => {
                 document.getElementById('form-container').style.display = 'none';
                 document.getElementById('vista-captura').style.display = 'block';
-                
                 document.getElementById('r-asesor').innerText = NOMBRE_ASESOR;
                 document.getElementById('r-cliente').innerText = payload.cliente_nombre;
                 document.getElementById('r-lote').innerText = payload.poligono + "-" + payload.lote;
@@ -181,11 +174,7 @@
                 document.getElementById('r-fecha').innerText = payload.fecha.split('-').reverse().join('/');
                 document.getElementById('r-obs').innerText = payload.observacion || "SIN OBSERVACIONES";
             })
-            .catch(err => {
-                alert("Error de conexión. Intente de nuevo.");
-                document.getElementById('btn').innerText = "REINTENTAR ENVÍO";
-                document.getElementById('btn').disabled = false;
-            });
+            .catch(err => alert("Error al enviar."));
         }
     </script>
 </body>
