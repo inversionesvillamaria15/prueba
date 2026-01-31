@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f1f5f9; padding: 15px; margin: 0; }
+        .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); max-width: 450px; margin: auto; }
+        .badge { background: #2563eb; color: white; padding: 5px 12px; border-radius: 8px; font-size: 11px; font-weight: bold; margin-bottom: 15px; display: inline-block; }
+        label { display: block; font-size: 11px; font-weight: bold; color: #64748b; margin-top: 15px; text-transform: uppercase; }
+        input, select, textarea { width: 100%; padding: 12px; margin-top: 5px; border: 1.5px solid #e2e8f0; border-radius: 12px; box-sizing: border-box; font-size: 14px; outline: none; font-family: inherit; }
+        #confirm-box { background: #f8fafc; padding: 15px; border-radius: 12px; margin-top: 15px; text-align: center; border: 2px dashed #cbd5e1; font-weight: bold; }
+        .btn { background: #2563eb; color: white; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: bold; margin-top: 25px; cursor: pointer; font-size: 15px; }
+        .btn:disabled { background: #cbd5e1; }
+        
+        /* DISEÑO TICKET PARA CAPTURA */
+        #vista-captura { display: none; text-align: center; }
+        .ticket { background: #fff; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; text-align: left; margin: 20px 0; }
+        .t-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dotted #cbd5e1; padding-bottom: 4px; gap: 10px; }
+        .t-label { color: #64748b; font-size: 11px; font-weight: bold; min-width: 90px; }
+        .t-val { font-weight: 800; font-size: 13px; color: #1e293b; text-align: right; text-transform: uppercase; }
+    </style>
+</head>
+<body>
+    <div id="form-container" class="card">
+        <div class="badge" id="asesor-tag">ASESOR: Eduardo Torres</div>
+        <div style="display:flex; gap:10px;">
+            <div style="flex:1"><label>POLÍGONO</label><input type="text" id="poligono" oninput="validar()" placeholder="A"></div>
+            <div style="flex:1"><label>LOTE</label><input type="text" id="lote" oninput="validar()" placeholder="1"></div>
+        </div>
+        <div id="confirm-box">Ingrese Lote y Polígono</div>
+        
+        <input type="hidden" id="h_id"><input type="hidden" id="h_nombre">
+        
+        <label>FECHA DEL PAGO</label><input type="date" id="fecha">
+        
+        <div style="display:flex; gap:10px;">
+            <div style="flex:1"><label>MONTO ($)</label><input type="number" id="monto" step="0.01"></div>
+            <div style="flex:1">
+                <label>MÉTODO</label>
+                <select id="metodo">
+                    <option value="Transferencia" selected>Transferencia</option>
+                    <option value="Efectivo">Efectivo</option>
+                </select>
+            </div>
+        </div>
+        
+        <label>TIPO DE ABONO</label>
+        <select id="tipo">
+            <option value="pago de cuota">Pago de Cuota</option>
+            <option value="abono a capital">Abono a Capital</option>
+        </select>
+
+        <label>OBSERVACIONES</label>
+        <textarea id="observacion" rows="2" placeholder="Ej: Pago adelantado de marzo..."></textarea>
+
+        <label>FOTO COMPROBANTE</label><input type="file" id="foto" accept="image/*">
+        
+        <button id="btn" class="btn" onclick="enviar()" disabled>ENVIAR PAGO</button>
+    </div>
+
+    <div id="vista-captura" class="card">
+        <div style="font-size:50px; color:#10b981;">✓</div>
+        <h2 style="margin:5px 0; color:#1e293b;">¡PAGO REPORTADO!</h2>
+        <p style="color:#64748b; font-size:12px;">Toma captura para el grupo</p>
+        <div class="ticket">
+            <div class="t-row"><span class="t-label">ASESOR</span><span class="t-val" id="r-asesor"></span></div>
+            <div class="t-row"><span class="t-label">CLIENTE</span><span class="t-val" id="r-cliente"></span></div>
+            <div class="t-row"><span class="t-label">UBICACIÓN</span><span class="t-val" id="r-lote"></span></div>
+            <div class="t-row"><span class="t-label">TIPO</span><span class="t-val" id="r-tipo" style="color:#2563eb"></span></div>
+            <div class="t-row"><span class="t-label">MONTO</span><span class="t-val" id="r-monto" style="color:#10b981"></span></div>
+            <div class="t-row"><span class="t-label">MÉTODO</span><span class="t-val" id="r-metodo"></span></div>
+            <div class="t-row"><span class="t-label">FECHA</span><span class="t-val" id="r-fecha"></span></div>
+            <div class="t-row" style="border:none; flex-direction:column; align-items:flex-start;">
+                <span class="t-label">OBSERVACIÓN:</span>
+                <span class="t-val" id="r-obs" style="text-align:left; margin-top:4px; display:block; width:100%;"></span>
+            </div>
+        </div>
+        <button class="btn" style="background:#64748b" onclick="location.reload()">NUEVO REPORTE</button>
+    </div>
+
+    <script>
+        const NOMBRE_ASESOR = "Admin"; 
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbygqiwclXfrFgSSXhvvprpRV94psJh5LKPC5FUbxPCtIPg_5g-AxstGW_qU9Rq7yds/exec"; // <--- NO OLVIDES PONER TU URL
+
+        document.getElementById('asesor-tag').innerText = "ASESOR: " + NOMBRE_ASESOR;
+
+        async function validar() {
+            const pol = document.getElementById('poligono').value.trim();
+            const lot = document.getElementById('lote').value.trim();
+            if(pol && lot) {
+                const res = await fetch(`${SCRIPT_URL}?action=buscarPorLote&poligono=${pol}&lote=${lot}`).then(r => r.json());
+                if(res.nombre) {
+                    document.getElementById('confirm-box').innerHTML = `✅ ${res.nombre}`;
+                    document.getElementById('confirm-box').style.background = "#dcfce7";
+                    document.getElementById('h_id').value = res.id;
+                    document.getElementById('h_nombre').value = res.nombre;
+                    document.getElementById('btn').disabled = false;
+                } else {
+                    document.getElementById('confirm-box').innerText = "❌ No encontrado";
+                    document.getElementById('confirm-box').style.background = "#fee2e2";
+                    document.getElementById('btn').disabled = true;
+                }
+            }
+        }
+
+        function enviar() {
+            const f = document.getElementById('foto').files[0];
+            const m = document.getElementById('monto').value;
+            const fec = document.getElementById('fecha').value;
+            if(!f || !m || !fec) return alert("Por favor, completa fecha, monto y foto.");
+            
+            document.getElementById('btn').innerText = "ENVIANDO REPORTE...";
+            document.getElementById('btn').disabled = true;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const payload = {
+                    action: "solicitarRevision",
+                    asesor_nombre: NOMBRE_ASESOR,
+                    poligono: document.getElementById('poligono').value,
+                    lote: document.getElementById('lote').value,
+                    cliente_id: document.getElementById('h_id').value,
+                    cliente_nombre: document.getElementById('h_nombre').value,
+                    fecha: fec,
+                    monto: m,
+                    metodo_pago: document.getElementById('metodo').value,
+                    tipo_abono: document.getElementById('tipo').value,
+                    observacion: document.getElementById('observacion').value,
+                    imagen_base64: e.target.result.split(',')[1]
+                };
+
+                fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) }).then(() => {
+                    // Mostrar Ticket
+                    document.getElementById('form-container').style.display = 'none';
+                    document.getElementById('vista-captura').style.display = 'block';
+                    
+                    document.getElementById('r-asesor').innerText = NOMBRE_ASESOR;
+                    document.getElementById('r-cliente').innerText = payload.cliente_nombre;
+                    document.getElementById('r-lote').innerText = payload.poligono + "-" + payload.lote;
+                    document.getElementById('r-tipo').innerText = payload.tipo_abono;
+                    document.getElementById('r-monto').innerText = "$" + parseFloat(payload.monto).toFixed(2);
+                    document.getElementById('r-metodo').innerText = payload.metodo_pago;
+                    document.getElementById('r-fecha').innerText = payload.fecha.split('-').reverse().join('/');
+                    document.getElementById('r-obs').innerText = payload.observacion || "SIN OBSERVACIONES";
+                });
+            };
+            reader.readAsDataURL(f);
+        }
+    </script>
+</body>
+</html>
