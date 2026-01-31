@@ -13,7 +13,6 @@
         .btn { background: #2563eb; color: white; border: none; padding: 16px; width: 100%; border-radius: 12px; font-weight: bold; margin-top: 25px; cursor: pointer; font-size: 15px; }
         .btn:disabled { background: #cbd5e1; }
         
-        /* DISEÑO TICKET PARA CAPTURA */
         #vista-captura { display: none; text-align: center; }
         .ticket { background: #fff; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; text-align: left; margin: 20px 0; }
         .t-row { display: flex; justify-content: space-between; margin-bottom: 8px; border-bottom: 1px dotted #cbd5e1; padding-bottom: 4px; gap: 10px; }
@@ -23,7 +22,7 @@
 </head>
 <body>
     <div id="form-container" class="card">
-        <div class="badge" id="asesor-tag">ASESOR: Admin</div>
+        <div class="badge" id="asesor-tag">ASESOR: Eduardo Torres</div>
         <div style="display:flex; gap:10px;">
             <div style="flex:1"><label>POLÍGONO</label><input type="text" id="poligono" oninput="validar()" placeholder="A"></div>
             <div style="flex:1"><label>LOTE</label><input type="text" id="lote" oninput="validar()" placeholder="1"></div>
@@ -81,33 +80,30 @@
     </div>
 
     <script>
-        const NOMBRE_ASESOR = "Admin"; 
-        const SCRIPT_URL = "TU_URL_DE_GOOGLE_SCRIPT"; 
+        const NOMBRE_ASESOR = "Eduardo Torres"; 
+        const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbygqiwclXfrFgSSXhvvprpRV94psJh5LKPC5FUbxPCtIPg_5g-AxstGW_qU9Rq7yds/exec";
 
         document.getElementById('asesor-tag').innerText = "ASESOR: " + NOMBRE_ASESOR;
 
-        // --- PUENTE HACIA APP INVENTOR ---
-        const inputFoto = document.getElementById('foto');
-        
-        inputFoto.addEventListener('click', function(e) {
+        // --- PUENTE DE IMAGEN COMO TEXTO ---
+        let imagenBase64App = null; 
+
+        // Esta función será llamada por App Inventor mediante EvaluateJavaScript
+        window.recibirFotoDesdeApp = function(base64) {
+            imagenBase64App = base64;
+            const box = document.getElementById('confirm-box');
+            box.innerHTML = "✅ FOTO PROCESADA CON ÉXITO";
+            box.style.background = "#dcfce7";
+            box.style.border = "2px solid #10b981";
+        };
+
+        // Interceptar el clic en el botón de archivo para avisar a la App
+        document.getElementById('foto').addEventListener('click', function(e) {
             if (window.AppInventor) {
-                // Si la app está detectada, cancelamos el menú interno de Android 
-                // y le mandamos el mensaje a App Inventor
-                e.preventDefault();
+                e.preventDefault(); // Detiene el menú fallido de Android
                 AppInventor.setWebViewString("ABRIR_GALERIA");
             }
         });
-
-        // Detectar cuando el archivo ya esté cargado (después del puente)
-        inputFoto.onchange = function() {
-            if (this.files && this.files[0]) {
-                const box = document.getElementById('confirm-box');
-                box.innerText = "✅ FOTO CARGADA: " + this.files[0].name.substring(0, 20) + "...";
-                box.style.background = "#dcfce7";
-                box.style.border = "2px solid #10b981";
-            }
-        };
-        // ---------------------------------
 
         async function validar() {
             const pol = document.getElementById('poligono').value.trim();
@@ -131,53 +127,65 @@
         }
 
         function enviar() {
-            const f = document.getElementById('foto').files[0];
             const m = document.getElementById('monto').value;
             const fec = document.getElementById('fecha').value;
-            if(!f || !m || !fec) return alert("Por favor, completa fecha, monto y foto.");
+            const f = document.getElementById('foto').files[0];
+
+            // Validamos que exista una imagen (de la App o del input) y los campos obligatorios
+            if((!f && !imagenBase64App) || !m || !fec) return alert("Por favor, completa fecha, monto y foto.");
             
             document.getElementById('btn').innerText = "ENVIANDO REPORTE...";
             document.getElementById('btn').disabled = true;
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const payload = {
-                    action: "solicitarRevision",
-                    asesor_nombre: NOMBRE_ASESOR,
-                    poligono: document.getElementById('poligono').value,
-                    lote: document.getElementById('lote').value,
-                    cliente_id: document.getElementById('h_id').value,
-                    cliente_nombre: document.getElementById('h_nombre').value,
-                    fecha: fec,
-                    monto: m,
-                    metodo_pago: document.getElementById('metodo').value,
-                    tipo_abono: document.getElementById('tipo').value,
-                    observacion: document.getElementById('observacion').value,
-                    imagen_base64: e.target.result.split(',')[1]
-                };
-
-                fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
-                .then(r => r.json())
-                .then(res => {
-                    document.getElementById('form-container').style.display = 'none';
-                    document.getElementById('vista-captura').style.display = 'block';
-                    
-                    document.getElementById('r-asesor').innerText = NOMBRE_ASESOR;
-                    document.getElementById('r-cliente').innerText = payload.cliente_nombre;
-                    document.getElementById('r-lote').innerText = payload.poligono + "-" + payload.lote;
-                    document.getElementById('r-tipo').innerText = payload.tipo_abono;
-                    document.getElementById('r-monto').innerText = "$" + parseFloat(payload.monto).toFixed(2);
-                    document.getElementById('r-metodo').innerText = payload.metodo_pago;
-                    document.getElementById('r-fecha').innerText = payload.fecha.split('-').reverse().join('/');
-                    document.getElementById('r-obs').innerText = payload.observacion || "SIN OBSERVACIONES";
-                })
-                .catch(err => {
-                    alert("Error al enviar. Revisa internet.");
-                    document.getElementById('btn').innerText = "REINTENTAR ENVÍO";
-                    document.getElementById('btn').disabled = false;
-                });
+            const payload = {
+                action: "solicitarRevision",
+                asesor_nombre: NOMBRE_ASESOR,
+                poligono: document.getElementById('poligono').value,
+                lote: document.getElementById('lote').value,
+                cliente_id: document.getElementById('h_id').value,
+                cliente_nombre: document.getElementById('h_nombre').value,
+                fecha: fec,
+                monto: m,
+                metodo_pago: document.getElementById('metodo').value,
+                tipo_abono: document.getElementById('tipo').value,
+                observacion: document.getElementById('observacion').value,
+                imagen_base64: imagenBase64App || "" 
             };
-            reader.readAsDataURL(f);
+
+            // Si no hay imagen de la App pero sí del input (ej. Chrome), la convertimos
+            if(!imagenBase64App && f) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    payload.imagen_base64 = e.target.result.split(',')[1];
+                    procesarEnvio(payload);
+                };
+                reader.readAsDataURL(f);
+            } else {
+                procesarEnvio(payload);
+            }
+        }
+
+        function procesarEnvio(payload) {
+            fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload) })
+            .then(r => r.json())
+            .then(res => {
+                document.getElementById('form-container').style.display = 'none';
+                document.getElementById('vista-captura').style.display = 'block';
+                
+                document.getElementById('r-asesor').innerText = NOMBRE_ASESOR;
+                document.getElementById('r-cliente').innerText = payload.cliente_nombre;
+                document.getElementById('r-lote').innerText = payload.poligono + "-" + payload.lote;
+                document.getElementById('r-tipo').innerText = payload.tipo_abono;
+                document.getElementById('r-monto').innerText = "$" + parseFloat(payload.monto).toFixed(2);
+                document.getElementById('r-metodo').innerText = payload.metodo_pago;
+                document.getElementById('r-fecha').innerText = payload.fecha.split('-').reverse().join('/');
+                document.getElementById('r-obs').innerText = payload.observacion || "SIN OBSERVACIONES";
+            })
+            .catch(err => {
+                alert("Error de conexión. Intente de nuevo.");
+                document.getElementById('btn').innerText = "REINTENTAR ENVÍO";
+                document.getElementById('btn').disabled = false;
+            });
         }
     </script>
 </body>
